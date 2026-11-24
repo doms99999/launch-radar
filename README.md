@@ -1,6 +1,6 @@
-[![make.fun entry](https://make.fun/api/competitions/token-radar-01/badge.svg?entry=doms9999)](https://make.fun/bounty/token-radar-01)
-[![Live on make.fun](https://make.fun/api/badges/live.svg?user=doms9999&competition=token-radar-01)](https://make.fun/bounty/token-radar-01)
-[![Token Radar entry by @doms9999 on make.fun](https://make.fun/api/competitions/token-radar-01/badge.svg?entry=doms9999&v=2)](https://make.fun/bounty/token-radar-01)
+[![make.fun · token-radar-01](https://make.fun/badge/token-radar-01.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![rank](https://make.fun/badge/token-radar-01/doms99999/launch-radar/rank.svg)](https://make.fun/bounty/token-radar-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![reward](https://make.fun/badge/token-radar-01/doms99999/launch-radar/reward.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
 
 # Launch Radar
 
