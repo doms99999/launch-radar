@@ -891,7 +891,7 @@ export function farmMath(p: SnapshotProtocol, priced: Priced): FarmMath {
 }
 
 const money = (n: number): string => `$${Math.round(n).toLocaleString('en-US')}`;
-const money2 = (n: number): string => `$${n.toFixed(2)}`;
+const money2 = (n: number): string => (n < 0 ? `-$${Math.abs(n).toFixed(2)}` : `$${n.toFixed(2)}`);
 
 /** The category's core position action, in words a farmer can follow. */
 function coreAction(p: SnapshotProtocol, capital: number, chain: string): string {
