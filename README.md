@@ -17,16 +17,23 @@ special-cased anywhere.
 - **Fitted value** — a least-squares price line of log market cap on log TVL over the 128 tokened
   protocols that carry a market cap, times a category factor and a growth factor. The factors are
   median residuals from the line, shrunk toward 1 by each group's sample size and capped, so a
-  thin category borrows the market's answer instead of inventing its own.
-- **Launch odds** — the share of a protocol's own category-and-age peers that already carry a
-  token, read off the snapshot itself and smoothed cell to category to universe.
+  thin category borrows the market's answer instead of inventing its own. Extra terms (log age,
+  chain count, continuous weekly change) are admitted only when they lower the pooled
+  cross-validated error; this run ships the continuous weekly-change term, winsorized at ±150%.
+- **Value range** — every row carries the central 80% of the model's own out-of-fold errors in
+  its category, shrunk toward the global spread.
+- **Launch odds** — a category's tokened share of the snapshot, times an age multiplier read off
+  the whole universe (over three years old: 1.4×; under six months: 0.6×), clamped to 1%–98%.
 - **Implied value** — fitted value × launch odds, in whole dollars. That is the board's sort key.
-- **Held-out honesty** — the tokened set is split in two by a hash of the slug; each half is
-  fitted on one side and priced on the other. The dashboard publishes the resulting median error
-  and the share of prices landing within 2× of the recorded market cap.
-- **Farm verdicts** — each plan is priced against its fitted value under stated assumptions (5%
-  of a launch reaches farmers; the qualifying crowd is TVL / $50,000, bounded 1,000–100,000
-  wallets; gas is charged per chain). Every plan ends in a verdict: strong, worthwhile, or thin.
+- **Held-out honesty, four ways** — a slug-hash half split, a five-fold cross-validation, an
+  older-to-newer temporal split, and a leave-one-category-out pass. The dashboard's Model ledger
+  tab publishes all four, every category factor, the age-odds table, the pricing anchors
+  (recorded cap beside fitted value for all 128 training protocols), and the board's self-checks.
+- **Farm verdicts** — each plan's expected share is weighted by the board's own launch odds and
+  priced against the plan's full cost, routed through the protocol's cheapest chain, with
+  capital never under twice the cost (5% of a launch reaches farmers; the qualifying crowd is
+  TVL / $25,000, bounded 5,000–100,000 wallets). Strong = at least 5× cost in odds-weighted
+  value; worthwhile = at least 1×; thin = below.
 
 The whole universe is accounted for on the dashboard's integrity strip: 416 tokened protocols are
 the training set and the Live view, 197 pre-token protocols are ranked, and 145 are set aside with

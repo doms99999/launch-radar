@@ -105,17 +105,20 @@
       '<div class="cell"><div class="k">Universe accounted</div><div class="v">' + a.total + '</div><div class="s">' + a.tokened + ' tokened, ' + a.ranked + ' ranked, ' + asideTotal + ' set aside</div></div>' +
       '<div class="cell"><div class="k">Watchlist coverage</div><div class="v"><em>' + DATA.watchlist_size + ' / ' + DATA.watchlist_size + '</em></div><div class="s">every house watchlist protocol is on the board</div></div>' +
       '<div class="cell"><div class="k">Board implied value</div><div class="v">' + money(totalImplied) + '</div><div class="s">across ' + DATA.board_size + ' pre-token protocols</div></div>' +
-      '<div class="cell"><div class="k">Fit, held out</div><div class="v">' + Math.round(f.validation_median_ape * 100) + '% <span style="font-size:13px;color:var(--dim)">median error</span></div><div class="s">trained on ' + f.train_size + ' market caps, ' + f.validation_within_2x_pct + '% priced within 2x on the held-out half</div></div>' +
+      '<div class="cell"><div class="k">Fit, held out</div><div class="v">×/÷ ' + f.typical_miss_factor.toFixed(1) + ' <span style="font-size:13px;color:var(--dim)">typical miss</span></div><div class="s">tested four ways on ' + f.train_size + ' market caps; ' + f.validation_within_2x_pct + '% land within 2x out of fold</div></div>' +
       '</section>' +
       '<p class="fine" style="color:var(--faint);font-size:12.5px;margin:0 0 4px">Set aside, not dropped: ' + esc(asideText) + '. Tokened protocols are never ranked: they are the training set and the Live view.</p>';
   }
 
   function modelHtml() {
     var f = DATA.fit;
+    var L = DATA.ledger;
+    var terms = L.terms_adopted.length ? ' Extra terms the held-out test earned: ' + L.terms_adopted.join(', ') + '.' : '';
+    var growth = L.growth_factors_active ? 'growth-bucket factors' : 'a continuous weekly-change term (the growth buckets retire when the term ships, so growth is never counted twice)';
     return '<section class="model"><h2>The model, stated plainly</h2>' +
-      '<p class="formula">fitted value = price line(TVL) x category factor x growth factor &nbsp;·&nbsp; implied value = fitted value x launch odds</p>' +
-      '<p>The price line is a least-squares fit of log market cap on log TVL over the ' + f.train_size + ' tokened protocols that carry a market cap (reference multiple ' + f.reference_multiple.toFixed(2) + ' at $100M TVL, slope ' + f.slope.toFixed(2) + ': value grows slower than TVL). Category and growth factors are median residuals from that line, shrunk toward 1 by sample size and capped, so thin categories borrow the market\'s answer. Launch odds are the share of a protocol\'s own category-and-age peers that already carry a token (' + pct(f.global_launch_rate, 0) + ' across the universe), smoothed the same way. No protocol name is special-cased anywhere.</p>' +
-      '<p class="fine">Farm verdicts price each plan against its fitted value under stated assumptions: 5% of a launch reaches farmers, the qualifying crowd is the protocol\'s TVL divided by $50,000 (bounded 1,000 to 100,000 wallets), and gas is charged per chain at the rates in the code. Held-out honesty: fitted on one half of the tokened set, the model\'s median error on the other half is ' + Math.round(f.validation_median_ape * 100) + '%, with ' + f.validation_within_2x_pct + '% of prices landing within 2x of the recorded market cap. Treat every value as a ranking with a stated error, not a promise.</p></section>';
+      '<p class="formula">fitted value = price line(TVL) x category factor x growth factor &nbsp;·&nbsp; implied = fitted x launch odds &nbsp;·&nbsp; range = the model\'s own out-of-fold errors</p>' +
+      '<p>The price line is a least-squares fit of log market cap on log TVL over the ' + f.train_size + ' tokened protocols carrying a market cap (reference multiple ' + f.reference_multiple.toFixed(2) + ' at $100M TVL, slope ' + f.slope.toFixed(2) + '). Category factors and ' + growth + ' are shrunk median residuals, capped so thin groups borrow the market\'s answer.' + terms + ' Launch odds are a category\'s tokened share (' + pct(f.global_launch_rate, 0) + ' universe-wide) times an age multiplier read off the whole snapshot: protocols over three years old carry a token at 1.4x the base rate, under six months at 0.6x. Every row\'s range is the central 80% of the model\'s out-of-fold errors in its category. No protocol name is special-cased anywhere; the full fit is published in the Model ledger tab.</p>' +
+      '<p class="fine">Farm verdicts price the odds-weighted share: 5% of a launch reaches farmers, the qualifying crowd is TVL / $25,000 (bounded 5,000 to 100,000 wallets), plans route through each protocol\'s cheapest chain, and capital is never under twice a plan\'s full cost. Strong = expected value at least 5x cost; worthwhile = at least 1x; thin = below. Held out four ways (half split, five-fold, older-to-newer, leave-one-category-out) the typical miss is ×/÷ ' + f.typical_miss_factor.toFixed(1) + '. Treat every value as a ranking with a stated error, not a promise.</p></section>';
   }
 
   function controlsHtml() {
@@ -126,7 +129,8 @@
     }
     return '<div class="tabs">' +
       '<button data-view="board" class="' + (state.view === 'board' ? 'on' : '') + '">Launch board</button>' +
-      '<button data-view="live" class="' + (state.view === 'live' ? 'on' : '') + '">Live tokens (training set)</button></div>' +
+      '<button data-view="live" class="' + (state.view === 'live' ? 'on' : '') + '">Live tokens (training set)</button>' +
+      '<button data-view="ledger" class="' + (state.view === 'ledger' ? 'on' : '') + '">Model ledger</button></div>' +
       (state.view === 'board' ? '<div class="controls">' +
         '<input type="search" id="q" placeholder="Search name or slug" value="' + esc(state.q) + '">' +
         '<select id="cat">' + opts(cats, state.cat, 'All categories') + '</select>' +
@@ -184,23 +188,60 @@
       '<div class="term"><div class="k">TVL</div><div class="v">' + moneyFull(r.tvl_usd) + '</div></div>' +
       '<div class="term"><div class="k">Price line x factors</div><div class="v">' + m.size_multiple.toFixed(3) + ' x ' + m.category_factor.toFixed(2) + ' x ' + m.growth_adjustment.toFixed(2) + '</div></div>' +
       '<div class="term"><div class="k">Fitted launch value</div><div class="v">' + moneyFull(m.fitted_fdv_usd) + '</div></div>' +
+      '<div class="term"><div class="k">Value range (80%)</div><div class="v">' + money(m.value_low_usd) + ' – ' + money(m.value_high_usd) + '</div></div>' +
       '<div class="term"><div class="k">Launch odds x implied</div><div class="v">' + pct(m.launch_odds) + ' → ' + moneyFull(r.implied_value_usd) + '</div></div>' +
       '</div>' +
-      '<h3>Farm plan: ' + moneyFull(r.farm.capital_usd) + ' for ' + r.farm.weeks + ' weeks, about $' + r.farm.total_cost_usd.toFixed(2) + ' all in</h3>' +
-      '<p style="margin:4px 0">Expected share at the fitted value, under the model card\'s assumptions: <strong>' + moneyFull(r.farm.expected_share_usd) + '</strong> per qualifying wallet before odds. ' + verdictChip(r.farm.verdict) + '</p>' +
+      '<h3>Farm plan: ' + moneyFull(r.farm.capital_usd) + ' for ' + r.farm.weeks + ' weeks via ' + esc(r.farm.entry_chain) + ', about $' + r.farm.total_cost_usd.toFixed(2) + ' all in</h3>' +
+      '<p style="margin:4px 0">Expected share at the fitted value: <strong>' + moneyFull(r.farm.expected_share_usd) + '</strong> per qualifying wallet, which the ' + pct(m.launch_odds) + ' launch odds weight to <strong>' + moneyFull(r.farm.expected_value_usd) + '</strong> — ' + r.farm.ratio.toFixed(1) + 'x the plan\'s cost. ' + verdictChip(r.farm.verdict) + '</p>' +
       '<ol>' + steps + '</ol></section>';
+  }
+
+  function ledgerHtml() {
+    var L = DATA.ledger;
+    function splitRow(label, s) {
+      return '<tr><td>' + label + '</td><td class="num">' + Math.round(s.median_ape * 100) + '%</td><td class="num">' + s.within_2x_pct + '%</td><td class="num">' + s.tested + '</td></tr>';
+    }
+    var val = '<h3>Held out, four ways</h3><table><thead><tr><th>Pass</th><th class="num">Median error</th><th class="num">Within 2x</th><th class="num">Tested</th></tr></thead><tbody>' +
+      splitRow('Slug-hash half split', L.validation.half) +
+      splitRow('Five-fold cross-validation', L.validation.fivefold) +
+      splitRow('Older fitted, newer priced', L.validation.temporal) +
+      splitRow('Leave-one-category-out', L.validation.category_holdout) +
+      '</tbody></table>' +
+      '<p class="fine">Typical miss across the five-fold pass: ×/÷ ' + L.validation.typical_miss_factor.toFixed(1) + '. Each row\'s value range is the central 80% of these out-of-fold errors in its own category (global spread ×' + L.interval.global_low_mult.toFixed(2) + ' to ×' + L.interval.global_high_mult.toFixed(2) + '), shrunk toward the global spread by sample size.</p>';
+    var cats = L.categories.slice(0, 18).map(function (c) {
+      return '<tr><td>' + esc(c.category) + '</td><td class="num">' + c.factor.toFixed(2) + 'x</td><td class="num">' + c.train_n + '</td></tr>';
+    }).join('');
+    var catBlock = '<h3>Category factors (top ' + Math.min(18, L.categories.length) + ' of ' + L.categories.length + ')</h3><table><thead><tr><th>Category</th><th class="num">Factor</th><th class="num">Trained on</th></tr></thead><tbody>' + cats + '</tbody></table>' +
+      '<p class="fine">Terms the held-out test admitted: ' + (L.terms_adopted.length ? esc(L.terms_adopted.join(', ')) : 'none — the plain line with bucket factors beat every extra term') + '. Growth factors: ' + (L.growth_factors_active ? L.growth.map(function (g) { return esc(g.label) + ' ' + g.factor.toFixed(2) + 'x (n=' + g.train_n + ')'; }).join(' · ') : 'retired in favour of the continuous term') + '.</p>';
+    var ages = L.age_odds.map(function (a) {
+      return '<tr><td>' + esc(a.label) + '</td><td class="num">' + a.n + '</td><td class="num">' + a.tokened + '</td><td class="num">' + pct(a.rate) + '</td><td class="num">' + a.multiplier.toFixed(2) + 'x</td></tr>';
+    }).join('');
+    var ageBlock = '<h3>Launch odds by age band</h3><table><thead><tr><th>Age band</th><th class="num">Protocols</th><th class="num">Tokened</th><th class="num">Rate</th><th class="num">Multiplier</th></tr></thead><tbody>' + ages + '</tbody></table>' +
+      '<p class="fine">A row\'s odds are its category\'s tokened share times its age band\'s multiplier, clamped between 1% and 98%.</p>';
+    var anchors = L.anchors.slice(0, 24).map(function (a) {
+      return '<tr><td><span class="name">' + esc(a.name) + '</span></td><td class="num">' + money(a.tvl_usd) + '</td><td class="num">' + money(a.actual_mcap_usd) + '</td><td class="num">' + money(a.fitted_fdv_usd) + '</td></tr>';
+    }).join('');
+    var anchorBlock = '<h3>Pricing anchors: the market vs the model (top 24 of ' + L.anchors.length + ')</h3><table><thead><tr><th>Training protocol</th><th class="num">TVL</th><th class="num">Recorded cap</th><th class="num">Fitted</th></tr></thead><tbody>' + anchors + '</tbody></table>';
+    var checks = L.self_checks.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('');
+    return '<section class="ledger"><p style="color:var(--dim);font-size:14px;margin-top:0">The fit itself, published with the board: every factor, rate and error bar the numbers on the board came from, computed by the same program run that wrote board.json.</p>' +
+      val + catBlock + ageBlock + anchorBlock +
+      '<h3>Self-checks, computed on this board</h3><ul class="checks">' + checks + '</ul></section>';
   }
 
   function render() {
     var list = filtered();
+    var ghost = '<svg class="ghost" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 6c22 0 38 17 38 40v48l-9.5-8L69 94l-9.5-8L50 94l-9.5-8L31 94l-9.5-8L12 94V46c0-23 16-40 38-40z" fill="#f5f7fa"/><circle cx="35" cy="46" r="6.5" fill="#14100f"/><circle cx="65" cy="46" r="6.5" fill="#14100f"/><circle cx="82" cy="24" r="11" fill="#e93a9e"/><path d="M82 18v12M76 24h12" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/></svg>';
     var html = '<header class="mast"><div class="rings"></div><div><h1>LAUNCH <span class="thin">RADAR</span></h1>' +
-      '<p>Pre-token protocols ranked by fitted launch value, with the farm plan and the price of every plan.</p></div>' +
+      '<p>Pre-token protocols ranked by fitted launch value, with the farm plan and the price of every plan.</p>' +
+      '<p class="brand">' + ghost + 'Built for the <strong>make.fun</strong> token-radar-01 bounty</p></div>' +
       '<div class="asof">snapshot ' + esc(DATA.as_of) + '<br>' + esc(DATA.source) + '<br>model ' + esc(DATA.model_version) + '</div></header>';
     html += stripHtml();
     html += modelHtml();
     html += controlsHtml();
     if (state.view === 'live') {
       html += liveHtml();
+    } else if (state.view === 'ledger') {
+      html += ledgerHtml();
     } else {
       if (state.sel && bySlug[state.sel]) html += detailHtml(bySlug[state.sel]);
       html += boardHtml(list);
